@@ -1,10 +1,7 @@
 package com.aeq.cache;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 
@@ -13,17 +10,21 @@ import java.util.stream.Collectors;
  */
 public class LRUCache<K, V> implements Map<K, V> {
 
-    private ConcurrentHashMap<K,Node<K, V>> keyMap = new ConcurrentHashMap();
-    private DoublyLinkedList queue = new DoublyLinkedList();
+    private final ConcurrentHashMap<K,Node<K, V>> keyMap;
+    private final DoublyLinkedList queue;
 
-    private Duration ttl;
+    private final Long ttl;
 
-    private Timer timer = new Timer(false);
 
-    public LRUCache(Duration ttl) {
+
+    public LRUCache(Long ttl) {
         this.ttl = ttl;
-        CleanerTask cleanerTask = new CleanerTask();
-        timer.schedule(cleanerTask, 0,10);     //Trigger every 10 mills - not a better way to do it.
+        keyMap = new ConcurrentHashMap<>();
+        queue = new DoublyLinkedList<>();
+
+        Timer timer = new Timer(false);
+        timer.schedule(new CleanerTask(), 0,10);     //Trigger every 10 mills - not a better way to do it.
+
     }
 
 
@@ -114,15 +115,12 @@ public class LRUCache<K, V> implements Map<K, V> {
         public void run() {
             boolean continueCleanup = false;
             do {
-
-                AtomicReference<Node> tail = queue.getTail();
-
-                 if(tail.get() != null) {
-
-                     if(Duration.between(tail.get().lastAccessed, LocalDateTime.now()).toMillis() > ttl.toMillis()) {
-                         Node toBeTail = tail.get().previous;
-                         remove(tail.get().key);      //remove from keymap
-                         tail.set(toBeTail);
+                 if(queue.getTail().get() != null) {
+                     Node tail = (Node) queue.getTail().get();
+                     if(System.currentTimeMillis() - tail.lastAccessed > ttl) {
+                         Node toBeTail = tail.previous;
+                         remove(tail.key);      //remove from keymap
+                         tail = toBeTail;
                          continueCleanup = true;
                          queue.setTail(tail);
 
@@ -134,9 +132,5 @@ public class LRUCache<K, V> implements Map<K, V> {
         }
     }
 
-    @Override
-    protected void finalize() throws Throwable {
-        super.finalize();
-        this.timer.purge();
-    }
+
 }

@@ -30,19 +30,25 @@ public class DoublyLinkedList<K, V> {
     }
 
     public void removeElement(Node node) {
-        if(node==head.get()) head.set(head.get().next);
-        else if(node==tail.get()) tail.set(tail.get().previous);
-        else if(node.previous != null) node.previous.next = node.next;
-        else if(node.next != null) node.next.previous = node.previous;
+        head.compareAndSet(node, head.get().next);
+        tail.compareAndSet(node, tail.get().previous);
+
+        if(node.previous != null) node.previous.next = node.next;
+        if(node.next != null) node.next.previous = node.previous;
+
         node.next = null;
         node.previous = null;
     }
 
     public void updateAfterAccess(Node node) {
         removeElement(node);
-        node.lastAccessed = LocalDateTime.now();
-        node.next = head.get();
-        if(head != null) head.get().previous = node;
+        node.lastAccessed = System.currentTimeMillis();
+
+        if(head.get() != null) {
+            node.next = head.get();
+            head.get().previous = node;
+        }
+
         head.set(node);
     }
 
@@ -51,7 +57,7 @@ public class DoublyLinkedList<K, V> {
         return tail;
     }
 
-    public void setTail(AtomicReference<Node<K, V>> tail) {
-        this.tail = tail;
+    public void setTail(Node<K, V> tail) {
+        this.tail.set(tail);
     }
 }
